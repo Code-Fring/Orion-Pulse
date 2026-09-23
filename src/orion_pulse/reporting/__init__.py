@@ -1,6 +1,6 @@
 """Reporting module for Orion Pulse."""
 
-import contextlib
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -10,6 +10,8 @@ from orion_pulse.core.models import AnalysisReport
 from orion_pulse.forecasting import ForecastResult
 from orion_pulse.llm import LLMMessage, LLMProviderFactory
 from orion_pulse.news.analysis import EventAnalysis, NewsAnalysisService
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -73,12 +75,17 @@ class ReportGenerator:
         news_events = []
 
         if include_news and self.news_service:
-            with contextlib.suppress(Exception):
+            try:
                 news_events = self.news_service.fetch_and_analyze(
                     symbol=symbol,
                     days_back=news_days,
                     limit=20,
                     save_to_db=True,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "News is optional; continuing without it: %s",
+                    exc,
                 )
 
         report = ComprehensiveReport(
@@ -91,8 +98,13 @@ class ReportGenerator:
         )
 
         if use_llm and self.llm.is_available():
-            with contextlib.suppress(Exception):
+            try:
                 report = self._add_llm_summary(report)
+            except Exception as exc:
+                logger.warning(
+                    "LLM summary is optional; continuing without it: %s",
+                    exc,
+                )
 
         return report
 

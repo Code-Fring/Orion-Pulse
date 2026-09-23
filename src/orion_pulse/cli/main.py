@@ -130,12 +130,12 @@ def analyze(
                 ma_periods=parsed_ma_periods,
                 volatility_window=volatility_window,
             )
-    except AnalysisError as e:
-        console.print(f"[red]Analysis Error:[/red] {e}")
-        raise typer.Exit(code=1) from None
-    except Exception as e:
-        console.print(f"[red]Unexpected Error:[/red] {e}")
-        raise typer.Exit(code=1) from None
+    except AnalysisError as exc:
+        console.print(f"[red]Analysis Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    except Exception as exc:
+        console.print(f"[red]Unexpected Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
 
     # Render output
     render_analysis_report(report, json_output=json_output, no_color=no_color)
@@ -228,9 +228,9 @@ def news(
                 limit=limit,
                 save_to_db=True,
             )
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
 
     if json_output:
         import json
@@ -340,9 +340,9 @@ def forecast(
     try:
         with console.status(f"[cyan]Fetching data for {symbol.upper()}...[/cyan]"):
             raw_data = analysis_service.get_raw_data(symbol, lookback_days=lookback)
-    except Exception as e:
-        console.print(f"[red]Error fetching data:[/red] {e}")
-        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        console.print(f"[red]Error fetching data:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
 
     if raw_data.is_empty():
         console.print(f"[red]Error:[/red] No data available for {symbol}")
@@ -361,9 +361,9 @@ def forecast(
                         symbol, raw_data, model=model_enum, horizon_days=horizon
                     )
                 }
-    except Exception as e:
-        console.print(f"[red]Forecast Error:[/red] {e}")
-        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        console.print(f"[red]Forecast Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
 
     if json_output:
         import json
@@ -468,9 +468,9 @@ def backtest(
                     step_size=step_size,
                 )
                 results = {model_enum.value: engine.run_backtest(config)}
-    except Exception as e:
-        console.print(f"[red]Backtest Error:[/red] {e}")
-        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        console.print(f"[red]Backtest Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
 
     if json_output:
         import json
@@ -560,9 +560,9 @@ def report(
     try:
         with console.status(f"[cyan]Fetching data for {symbol.upper()}...[/cyan]"):
             raw_data = analysis_service.get_raw_data(symbol, lookback_days=lookback)
-    except Exception as e:
-        console.print(f"[red]Error fetching data:[/red] {e}")
-        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        console.print(f"[red]Error fetching data:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
 
     if raw_data.is_empty():
         console.print(f"[red]Error:[/red] No data available for {symbol}")
@@ -575,9 +575,9 @@ def report(
                 symbol=symbol,
                 lookback_days=lookback,
             )
-    except Exception as e:
-        console.print(f"[red]Analysis Error:[/red] {e}")
-        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        console.print(f"[red]Analysis Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
 
     # Generate forecasts
     try:
@@ -585,9 +585,9 @@ def report(
             forecast_results = forecast_service.generate_all_forecasts(
                 symbol, raw_data, horizon_days=horizon
             )
-    except Exception as e:
-        console.print(f"[red]Forecast Error:[/red] {e}")
-        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        console.print(f"[red]Forecast Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
 
     # Run quick backtest (last 6 months)
     backtest_result = None
@@ -621,9 +621,9 @@ def report(
                 news_days=news_days,
                 use_llm=not no_llm,
             )
-    except Exception as e:
-        console.print(f"[red]Report Error:[/red] {e}")
-        raise typer.Exit(code=1) from None
+    except Exception as exc:
+        console.print(f"[red]Report Error:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
 
     if json_output:
         import json
