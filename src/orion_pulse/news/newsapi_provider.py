@@ -101,21 +101,19 @@ class NewsAPIProvider(NewsProvider):
 
             return articles
 
-        except requests.exceptions.Timeout:
+        except requests.exceptions.Timeout as e:
             raise NewsProviderError(
                 "NewsAPI request timed out",
                 provider=self.get_provider_name(),
-            )
+            ) from e
         except requests.exceptions.RequestException as e:
             logger.error(f"NewsAPI request error: {e}")
             raise NewsProviderError(
                 f"Failed to fetch news: {e}",
                 provider=self.get_provider_name(),
-            )
+            ) from e
 
-    def _parse_article(
-        self, item: dict, symbol: str | None
-    ) -> NewsArticle | None:
+    def _parse_article(self, item: dict, symbol: str | None) -> NewsArticle | None:
         """Parse NewsAPI article into NewsArticle."""
         try:
             published_at = datetime.fromisoformat(

@@ -91,9 +91,11 @@ class TestFormatters:
 class TestRenderAnalysisReport:
     def test_renders_text_output(self, capsys):
         report = create_test_report()
-        with patch.object(settings, "json_output", False):
-            with patch.object(settings, "no_color", True):
-                render_analysis_report(report, json_output=False)
+        with (
+            patch.object(settings, "json_output", False),
+            patch.object(settings, "no_color", True),
+        ):
+            render_analysis_report(report, json_output=False)
 
         captured = capsys.readouterr()
         assert "ORION PULSE" in captured.out
@@ -116,4 +118,6 @@ class TestRenderAnalysisReport:
 
 
 if __name__ == "__main__":
+    import pytest
+
     pytest.main([__file__, "-v"])

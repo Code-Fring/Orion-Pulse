@@ -1,13 +1,14 @@
 """Reporting module for Orion Pulse."""
 
+import contextlib
 from dataclasses import dataclass, field
-from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any
 
 from orion_pulse.backtesting import BacktestResult
-from orion_pulse.core.models import AnalysisReport, Trend, TrendAnalysis
-from orion_pulse.forecasting import ForecastModel, ForecastResult
-from orion_pulse.llm import LLMMessage, LLMProvider, LLMProviderFactory, MockLLMProvider
+from orion_pulse.core.models import AnalysisReport
+from orion_pulse.forecasting import ForecastResult
+from orion_pulse.llm import LLMMessage, LLMProviderFactory
 from orion_pulse.news.analysis import EventAnalysis, NewsAnalysisService
 
 
@@ -72,16 +73,13 @@ class ReportGenerator:
         news_events = []
 
         if include_news and self.news_service:
-            try:
+            with contextlib.suppress(Exception):
                 news_events = self.news_service.fetch_and_analyze(
                     symbol=symbol,
                     days_back=news_days,
                     limit=20,
                     save_to_db=True,
                 )
-            except Exception:
-                # News is optional, continue without it
-                pass
 
         report = ComprehensiveReport(
             symbol=symbol,
@@ -93,11 +91,8 @@ class ReportGenerator:
         )
 
         if use_llm and self.llm.is_available():
-            try:
+            with contextlib.suppress(Exception):
                 report = self._add_llm_summary(report)
-            except Exception:
-                # LLM is optional, continue without summary
-                pass
 
         return report
 

@@ -144,7 +144,6 @@ class TestNewsProviderFactory:
 
 class TestNewsAnalysisService:
     def test_analyze_article_positive_bias(self):
-        provider = MockNewsProvider()
         service = NewsAnalysisService(provider_name="mock")
 
         article = NewsArticle(
@@ -168,7 +167,6 @@ class TestNewsAnalysisService:
         assert event.confidence > 0.5
 
     def test_analyze_article_negative_bias(self):
-        provider = MockNewsProvider()
         service = NewsAnalysisService(provider_name="mock")
 
         article = NewsArticle(
@@ -187,7 +185,6 @@ class TestNewsAnalysisService:
         assert event.directional_bias == DirectionalBias.NEGATIVE
 
     def test_analyze_article_neutral(self):
-        provider = MockNewsProvider()
         service = NewsAnalysisService(provider_name="mock")
 
         article = NewsArticle(
@@ -210,7 +207,6 @@ class TestNewsAnalysisService:
         ]
 
     def test_summarize_events(self):
-        provider = MockNewsProvider()
         service = NewsAnalysisService(provider_name="mock")
 
         events = [

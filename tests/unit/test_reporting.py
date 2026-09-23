@@ -8,7 +8,6 @@ import pytest
 from orion_pulse.backtesting import BacktestResult
 from orion_pulse.core.models import AnalysisReport, Trend, TrendAnalysis
 from orion_pulse.forecasting import ForecastResult
-from orion_pulse.llm import MockLLMProvider
 from orion_pulse.news.analysis import DirectionalBias, EventAnalysis, EventCategory
 from orion_pulse.reporting import (
     ComprehensiveReport,
@@ -142,7 +141,6 @@ class TestReportGenerator:
     def test_generate_report_basic(
         self, sample_analysis_report, sample_forecast_result, sample_backtest_result
     ):
-        llm = MockLLMProvider()
         generator = ReportGenerator(llm_provider_name="mock")
 
         report = generator.generate_report(
@@ -163,7 +161,6 @@ class TestReportGenerator:
     def test_generate_report_with_llm(
         self, sample_analysis_report, sample_forecast_result
     ):
-        llm = MockLLMProvider()
         generator = ReportGenerator(llm_provider_name="mock")
 
         report = generator.generate_report(
@@ -180,7 +177,6 @@ class TestReportGenerator:
     def test_generate_report_with_news(
         self, sample_analysis_report, sample_forecast_result, sample_events
     ):
-        llm = MockLLMProvider()
         news_service = Mock()
         news_service.fetch_and_analyze.return_value = sample_events
 

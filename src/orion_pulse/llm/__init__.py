@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class LLMProviderName(str, Enum):
@@ -28,6 +28,9 @@ class LLMResponse:
     """Response from LLM."""
 
     content: str
+    model: str
+    usage: dict[str, int] | None = None
+    metadata: dict[str, Any] | None = None
     model: str
     usage: dict[str, int] = None  # prompt_tokens, completion_tokens, total_tokens
     metadata: dict[str, Any] = None
@@ -201,18 +204,18 @@ class NVIDIAProvider(LLMProvider):
                 },
             )
 
-        except requests.exceptions.Timeout:
+        except requests.exceptions.Timeout as e:
             raise LLMProviderError(
                 "NVIDIA API request timed out",
                 provider=self.get_provider_name(),
                 model=self.model,
-            )
+            ) from e
         except requests.exceptions.RequestException as e:
             raise LLMProviderError(
                 f"NVIDIA API error: {e}",
                 provider=self.get_provider_name(),
                 model=self.model,
-            )
+            ) from e
 
 
 class LLMProviderFactory:

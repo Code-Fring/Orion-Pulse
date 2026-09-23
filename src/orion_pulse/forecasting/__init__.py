@@ -1,16 +1,15 @@
 """Forecasting engine for Orion Pulse."""
 
+import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from datetime import date, datetime
+from dataclasses import dataclass
+from datetime import date
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import polars as pl
 
-from orion_pulse.analysis.indicators import analyze_trend, prepare_analysis_data
-from orion_pulse.core.models import OHLCV, Trend
 from orion_pulse.storage.repositories import ForecastRepository
 
 
@@ -358,7 +357,8 @@ class TrendMomentumForecaster(BaseForecaster):
             factors={
                 "method": "trend_momentum",
                 "trend_signals": {
-                    f"ma_{p}": s for p, s in zip(ma_periods, trend_signals)
+                    f"ma_{p}": s
+                    for p, s in zip(ma_periods, trend_signals, strict=False)
                 },
                 "momentum": momentum,
             },
@@ -455,13 +455,15 @@ class EnsembleForecaster(BaseForecaster):
             weights = [1.0 / len(self.forecasters)] * len(self.forecasters)
 
         forecasts = []
-        for forecaster, weight in zip(self.forecasters, weights):
+        for forecaster, weight in zip(self.forecasters, weights, strict=True):
             try:
                 fc = forecaster.forecast(symbol, df, horizon_days)
                 forecasts.append((fc, weight))
-            except Exception:
-                # Skip failed forecasters
-                pass
+            except Exception as e:
+                # Skip failed forecasters but log the error
+                logging.warning(
+                    "Forecaster %s failed, skipping: %s", forecaster.model_name, e
+                )
 
         if not forecasts:
             raise ForecastingError("All ensemble forecasters failed")

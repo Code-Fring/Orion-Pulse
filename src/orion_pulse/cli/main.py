@@ -1,5 +1,6 @@
 """Main CLI entry point for Orion Pulse."""
 
+import logging
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated
@@ -111,18 +112,18 @@ def analyze(
             console.print(
                 "[red]Error:[/red] Invalid MA periods format. Use comma-separated integers."
             )
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from None
 
     # Create analysis service
     try:
         service = AnalysisService(provider_name=provider)
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     # Run analysis
     try:
-        with console.status(f"[cyan]Analyzing {symbol.upper()}...[/cyan]") as status:
+        with console.status(f"[cyan]Analyzing {symbol.upper()}...[/cyan]"):
             report = service.analyze(
                 symbol=symbol,
                 lookback_days=lookback,
@@ -131,10 +132,10 @@ def analyze(
             )
     except AnalysisError as e:
         console.print(f"[red]Analysis Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     except Exception as e:
         console.print(f"[red]Unexpected Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     # Render output
     render_analysis_report(report, json_output=json_output, no_color=no_color)
@@ -217,12 +218,10 @@ def news(
         news_service = NewsAnalysisService(provider_name=provider)
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     try:
-        with console.status(
-            f"[cyan]Fetching news for {symbol.upper()}...[/cyan]"
-        ) as status:
+        with console.status(f"[cyan]Fetching news for {symbol.upper()}...[/cyan]"):
             events = news_service.fetch_and_analyze(
                 symbol=symbol,
                 days_back=days,
@@ -231,7 +230,7 @@ def news(
             )
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     if json_output:
         import json
@@ -327,7 +326,7 @@ def forecast(
     except ValueError:
         console.print(f"[red]Error:[/red] Unknown model: {model}")
         console.print(f"Available models: {[m.value for m in ForecastModel]}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     # Create services
     try:
@@ -335,25 +334,23 @@ def forecast(
         forecast_service = ForecastingService()
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     # Get market data
     try:
-        with console.status(
-            f"[cyan]Fetching data for {symbol.upper()}...[/cyan]"
-        ) as status:
+        with console.status(f"[cyan]Fetching data for {symbol.upper()}...[/cyan]"):
             raw_data = analysis_service.get_raw_data(symbol, lookback_days=lookback)
     except Exception as e:
         console.print(f"[red]Error fetching data:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     if raw_data.is_empty():
         console.print(f"[red]Error:[/red] No data available for {symbol}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     # Generate forecasts
     try:
-        with console.status("[cyan]Generating forecast...[/cyan]") as status:
+        with console.status("[cyan]Generating forecast...[/cyan]"):
             if all_models:
                 results = forecast_service.generate_all_forecasts(
                     symbol, raw_data, horizon_days=horizon
@@ -366,7 +363,7 @@ def forecast(
                 }
     except Exception as e:
         console.print(f"[red]Forecast Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     if json_output:
         import json
@@ -433,11 +430,11 @@ def backtest(
         end = date.fromisoformat(end_date)
     except ValueError:
         console.print("[red]Error:[/red] Invalid date format. Use YYYY-MM-DD.")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     if start >= end:
         console.print("[red]Error:[/red] Start date must be before end date.")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     # Validate model
     if not all_models:
@@ -446,15 +443,13 @@ def backtest(
         except ValueError:
             console.print(f"[red]Error:[/red] Unknown model: {model}")
             console.print(f"Available models: {[m.value for m in ForecastModel]}")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from None
 
     # Create engine
     engine = BacktestEngine()
 
     try:
-        with console.status(
-            f"[cyan]Running backtest for {symbol.upper()}...[/cyan]"
-        ) as status:
+        with console.status(f"[cyan]Running backtest for {symbol.upper()}...[/cyan]"):
             if all_models:
                 results = engine.run_comparative_backtest(
                     symbol=symbol,
@@ -475,7 +470,7 @@ def backtest(
                 results = {model_enum.value: engine.run_backtest(config)}
     except Exception as e:
         console.print(f"[red]Backtest Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     if json_output:
         import json
@@ -546,7 +541,7 @@ def report(
         model_enum = ForecastModel(model)
     except ValueError:
         console.print(f"[red]Error:[/red] Unknown model: {model}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     # Create services
     try:
@@ -559,47 +554,45 @@ def report(
         )
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     # Get market data
     try:
-        with console.status(
-            f"[cyan]Fetching data for {symbol.upper()}...[/cyan]"
-        ) as status:
+        with console.status(f"[cyan]Fetching data for {symbol.upper()}...[/cyan]"):
             raw_data = analysis_service.get_raw_data(symbol, lookback_days=lookback)
     except Exception as e:
         console.print(f"[red]Error fetching data:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     if raw_data.is_empty():
         console.print(f"[red]Error:[/red] No data available for {symbol}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     # Run analysis
     try:
-        with console.status("[cyan]Running analysis...[/cyan]") as status:
+        with console.status("[cyan]Running analysis...[/cyan]"):
             analysis_report = analysis_service.analyze(
                 symbol=symbol,
                 lookback_days=lookback,
             )
     except Exception as e:
         console.print(f"[red]Analysis Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     # Generate forecasts
     try:
-        with console.status("[cyan]Generating forecast...[/cyan]") as status:
+        with console.status("[cyan]Generating forecast...[/cyan]"):
             forecast_results = forecast_service.generate_all_forecasts(
                 symbol, raw_data, horizon_days=horizon
             )
     except Exception as e:
         console.print(f"[red]Forecast Error:[/red] {e}")
-        forecast_results = {}
+        raise typer.Exit(code=1) from None
 
     # Run quick backtest (last 6 months)
     backtest_result = None
     try:
-        with console.status("[cyan]Running backtest...[/cyan]") as status:
+        with console.status("[cyan]Running backtest...[/cyan]"):
             bt_end = date.today() - timedelta(days=1)
             bt_start = bt_end - timedelta(days=180)
             config = BacktestConfig(
@@ -612,13 +605,13 @@ def report(
                 step_size=5,
             )
             backtest_result = backtest_engine.run_backtest(config)
-    except Exception:
-        # Backtest is optional
-        pass
+    except Exception as e:
+        # Backtest is optional, log and continue
+        logging.warning("Backtest failed, continuing without it: %s", e)
 
     # Generate comprehensive report
     try:
-        with console.status("[cyan]Generating report...[/cyan]") as status:
+        with console.status("[cyan]Generating report...[/cyan]"):
             report = report_generator.generate_report(
                 symbol=symbol,
                 analysis_report=analysis_report,
@@ -630,7 +623,7 @@ def report(
             )
     except Exception as e:
         console.print(f"[red]Report Error:[/red] {e}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     if json_output:
         import json
@@ -683,10 +676,9 @@ ORION_PULSE_ALPHA_VANTAGE_KEY=your_alpha_vantage_key_here
 ORION_PULSE_POLYGON_KEY=your_polygon_key_here
 """
         env_path = Path(".env")
-        if env_path.exists():
-            if not typer.confirm(".env already exists. Overwrite?"):
-                console.print("Aborted.")
-                return
+        if env_path.exists() and not typer.confirm(".env already exists. Overwrite?"):
+            console.print("Aborted.")
+            return
 
         env_path.write_text(env_content)
         console.print(f"[green]Created {env_path.absolute()}[/green]")

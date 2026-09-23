@@ -1,19 +1,14 @@
 """Backtesting framework for Orion Pulse."""
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
-import polars as pl
 
 from orion_pulse.forecasting import (
-    BaseForecaster,
     ForecastingService,
     ForecastModel,
-    ForecastResult,
 )
 from orion_pulse.storage.repositories import BacktestRepository, MarketDataRepository
 
@@ -288,7 +283,6 @@ class BacktestEngine:
 
         # Returns-based metrics
         actual_returns = [p.actual_return for p in valid_preds]
-        predicted_returns = [p.expected_return for p in valid_preds]
 
         cumulative_return = np.prod([1 + r for r in actual_returns]) - 1
 

@@ -3,6 +3,7 @@
 from datetime import date
 
 import pytest
+from pydantic import ValidationError
 
 from orion_pulse.core.models import (
     OHLCV,
@@ -49,7 +50,7 @@ class TestOHLCV:
         assert ohlcv.trading_date == date(2024, 1, 1)
 
     def test_validates_positive_prices(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError, match="greater than 0"):
             OHLCV(
                 symbol="TEST",
                 trading_date=date(2024, 1, 1),
@@ -61,7 +62,7 @@ class TestOHLCV:
             )
 
     def test_validates_non_negative_volume(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError, match="greater than or equal to 0"):
             OHLCV(
                 symbol="TEST",
                 trading_date=date(2024, 1, 1),
@@ -119,7 +120,7 @@ class TestOHLCV:
             close=103.0,
             volume=1000000,
         )
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError, match="frozen"):
             ohlcv.close = 200.0
 
 

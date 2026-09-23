@@ -30,6 +30,34 @@ def sample_ohlcv_data():
 
 
 @pytest.fixture
+def sample_market_data():
+    """Sample market data for testing."""
+    from datetime import date, timedelta
+
+    import numpy as np
+    import polars as pl
+
+    np.random.seed(42)
+    n = 100
+    dates = [date(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+    # Generate realistic price series with slight upward drift
+    returns = np.random.normal(0.0005, 0.015, n)
+    prices = 100 * np.exp(np.cumsum(returns))
+
+    return pl.DataFrame(
+        {
+            "date": dates,
+            "open": prices * (1 + np.random.normal(0, 0.002, n)),
+            "high": prices * (1 + np.abs(np.random.normal(0, 0.005, n))),
+            "low": prices * (1 - np.abs(np.random.normal(0, 0.005, n))),
+            "close": prices,
+            "volume": np.random.randint(1000000, 5000000, n),
+            "symbol": ["TEST"] * n,
+        }
+    )
+
+
+@pytest.fixture
 def mock_yfinance_data():
     """Mock yfinance data structure."""
     from datetime import date
