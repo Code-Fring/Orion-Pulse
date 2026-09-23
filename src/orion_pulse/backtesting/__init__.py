@@ -127,6 +127,13 @@ class BacktestEngine:
         self.market_repo = market_repo or MarketDataRepository()
         self.backtest_repo = backtest_repo or BacktestRepository()
 
+    @staticmethod
+    def _actual_return(prediction: BacktestPrediction) -> float:
+        """Extract actual_return, raising if None."""
+        if prediction.actual_return is None:
+            raise ValueError("Prediction has no actual return")
+        return prediction.actual_return
+
     def run_backtest(
         self,
         config: BacktestConfig,
@@ -259,32 +266,36 @@ class BacktestEngine:
 
         n = len(valid_preds)
 
+        # Extract actual returns with explicit typing
+        actual_returns: list[float] = [self._actual_return(p) for p in valid_preds]
+        errors: list[float] = [
+            abs(p.expected_return - self._actual_return(p)) for p in valid_preds
+        ]
+        squared_errors: list[float] = [
+            (p.expected_return - self._actual_return(p)) ** 2 for p in valid_preds
+        ]
+
         # Directional accuracy
         correct_direction = sum(
-            1
+            bool(
+                (p.expected_return > 0 and self._actual_return(p) > 0)
+                or (p.expected_return < 0 and self._actual_return(p) < 0)
+                or (p.expected_return == 0 and self._actual_return(p) == 0)
+            )
             for p in valid_preds
-            if (p.expected_return > 0 and p.actual_return > 0)
-            or (p.expected_return < 0 and p.actual_return < 0)
-            or (p.expected_return == 0 and p.actual_return == 0)
         )
         directional_accuracy = correct_direction / n
 
         # MAE and RMSE
-        errors = [abs(p.expected_return - p.actual_return) for p in valid_preds]
-        squared_errors = [
-            (p.expected_return - p.actual_return) ** 2 for p in valid_preds
-        ]
-        mae = np.mean(errors)
-        rmse = np.sqrt(np.mean(squared_errors))
+        mae = float(np.mean(errors))
+        rmse = float(np.sqrt(np.mean(squared_errors)))
 
         # Calibration error (for probabilistic forecasts)
         # Bin predictions by prob_positive and check actual frequency
         calibration_error = self._calculate_calibration_error(valid_preds)
 
         # Returns-based metrics
-        actual_returns = [p.actual_return for p in valid_preds]
-
-        cumulative_return = np.prod([1 + r for r in actual_returns]) - 1
+        cumulative_return = float(np.prod([1 + r for r in actual_returns]) - 1)
 
         # Annualized return (assuming 252 trading days)
         avg_period_days = (
@@ -292,77 +303,88 @@ class BacktestEngine:
         )
         periods_per_year = 252 / avg_period_days if avg_period_days > 0 else 12
         annualized_return = (
-            (1 + cumulative_return) ** periods_per_year - 1
+            float((1 + cumulative_return) ** periods_per_year - 1)
             if cumulative_return > -1
-            else -1
+            else -1.0
         )
 
         # Volatility of actual returns
         volatility = (
-            np.std(actual_returns) * np.sqrt(252) if len(actual_returns) > 1 else 0
+            float(np.std(actual_returns) * np.sqrt(252))
+            if len(actual_returns) > 1
+            else 0.0
         )
 
         # Max drawdown
         cumulative = np.cumprod([1 + r for r in actual_returns])
         running_max = np.maximum.accumulate(cumulative)
         drawdowns = (cumulative - running_max) / running_max
-        max_drawdown = float(np.min(drawdowns)) if len(drawdowns) > 0 else 0
+        max_drawdown = float(np.min(drawdowns)) if len(drawdowns) > 0 else 0.0
 
         # Sharpe ratio (assuming risk-free rate = 0)
         sharpe_ratio = (
-            (np.mean(actual_returns) * 252) / (volatility + 1e-8)
+            float((np.mean(actual_returns) * 252) / (volatility + 1e-8))
             if volatility > 0
-            else 0
+            else 0.0
         )
 
         # Sortino ratio (downside deviation)
         negative_returns = [r for r in actual_returns if r < 0]
         downside_std = (
-            np.std(negative_returns) * np.sqrt(252)
+            float(np.std(negative_returns) * np.sqrt(252))
             if len(negative_returns) > 1
             else volatility
         )
         sortino_ratio = (
-            (np.mean(actual_returns) * 252) / (downside_std + 1e-8)
+            float((np.mean(actual_returns) * 252) / (downside_std + 1e-8))
             if downside_std > 0
-            else 0
+            else 0.0
         )
 
         # Detailed results
         detailed = {
             "directional_accuracy_breakdown": {
                 "correct_up": sum(
-                    1
+                    bool(p.expected_return > 0 and self._actual_return(p) > 0)
                     for p in valid_preds
-                    if p.expected_return > 0 and p.actual_return > 0
                 ),
                 "correct_down": sum(
-                    1
+                    bool(p.expected_return < 0 and self._actual_return(p) < 0)
                     for p in valid_preds
-                    if p.expected_return < 0 and p.actual_return < 0
                 ),
                 "wrong_up": sum(
-                    1
+                    bool(p.expected_return > 0 and self._actual_return(p) < 0)
                     for p in valid_preds
-                    if p.expected_return > 0 and p.actual_return < 0
                 ),
                 "wrong_down": sum(
-                    1
+                    bool(p.expected_return < 0 and self._actual_return(p) > 0)
                     for p in valid_preds
-                    if p.expected_return < 0 and p.actual_return > 0
                 ),
             },
             "error_distribution": {
                 "mean_error": float(
-                    np.mean([p.expected_return - p.actual_return for p in valid_preds])
+                    np.mean(
+                        [
+                            p.expected_return - self._actual_return(p)
+                            for p in valid_preds
+                        ]
+                    )
                 ),
                 "median_error": float(
                     np.median(
-                        [p.expected_return - p.actual_return for p in valid_preds]
+                        [
+                            p.expected_return - self._actual_return(p)
+                            for p in valid_preds
+                        ]
                     )
                 ),
                 "std_error": float(
-                    np.std([p.expected_return - p.actual_return for p in valid_preds])
+                    np.std(
+                        [
+                            p.expected_return - self._actual_return(p)
+                            for p in valid_preds
+                        ]
+                    )
                 ),
             },
         }
@@ -375,15 +397,15 @@ class BacktestEngine:
             horizon_days=config.horizon_days,
             total_predictions=n,
             directional_accuracy=directional_accuracy,
-            mae=float(mae),
-            rmse=float(rmse),
+            mae=mae,
+            rmse=rmse,
             calibration_error=calibration_error,
-            cumulative_return=float(cumulative_return),
-            annualized_return=float(annualized_return),
-            volatility=float(volatility),
+            cumulative_return=cumulative_return,
+            annualized_return=annualized_return,
+            volatility=volatility,
             max_drawdown=max_drawdown,
-            sharpe_ratio=float(sharpe_ratio),
-            sortino_ratio=float(sortino_ratio),
+            sharpe_ratio=sharpe_ratio,
+            sortino_ratio=sortino_ratio,
             parameters={
                 "train_window": config.train_window,
                 "test_window": config.test_window,
@@ -412,10 +434,10 @@ class BacktestEngine:
                 continue
 
             # Actual frequency of positive returns
-            actual_positive = sum(1 for p in bin_preds if p.actual_return > 0) / len(
-                bin_preds
-            )
-            predicted_positive = np.mean([p.prob_positive for p in bin_preds])
+            actual_positive = sum(
+                bool(self._actual_return(p) > 0) for p in bin_preds
+            ) / len(bin_preds)
+            predicted_positive = float(np.mean([p.prob_positive for p in bin_preds]))
 
             bin_errors.append(abs(actual_positive - predicted_positive))
 
@@ -428,12 +450,12 @@ class BacktestEngine:
         end_date: date,
         horizon_days: int = 5,
         models: list[ForecastModel] | None = None,
-    ) -> dict[str, BacktestResult]:
+    ) -> dict[str, BacktestResult | None]:
         """Run backtest for multiple models and compare."""
         if models is None:
             models = list(ForecastModel)
 
-        results = {}
+        results: dict[str, BacktestResult | None] = {}
         for model in models:
             config = BacktestConfig(
                 symbol=symbol,

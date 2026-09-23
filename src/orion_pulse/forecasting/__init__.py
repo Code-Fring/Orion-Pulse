@@ -13,11 +13,27 @@ import polars as pl
 from orion_pulse.storage.repositories import ForecastRepository
 
 
-def _as_float(value: object, default: float = 0.0) -> float:
-    """Safely convert a value to float, handling None."""
+def _as_float(value: Any, default: float = 0.0) -> float:
+    """Safely convert a value to float, handling None and Polars types."""
     if value is None:
         return default
-    return float(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_float_series(series: pl.Series) -> float:
+    """Extract single float from a Polars series, handling None."""
+    if series.is_empty():
+        return 0.0
+    val = series[0]
+    if val is None:
+        return 0.0
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 class ForecastModel(str, Enum):
@@ -111,10 +127,10 @@ class BaseForecaster(ABC):
             return {"mean": 0.0, "std": 0.0, "skew": 0.0, "kurtosis": 0.0}
 
         return {
-            "mean": float(clean_returns.mean()),
-            "std": float(clean_returns.std()),
-            "skew": float(clean_returns.skew()),
-            "kurtosis": float(clean_returns.kurtosis()),
+            "mean": _as_float(clean_returns.mean()),
+            "std": _as_float(clean_returns.std()),
+            "skew": _as_float(clean_returns.skew()),
+            "kurtosis": _as_float(clean_returns.kurtosis()),
         }
 
     def _percentile_forecast(
@@ -159,9 +175,10 @@ class HistoricalMeanForecaster(BaseForecaster):
         symbol: str,
         df: pl.DataFrame,
         horizon_days: int = 5,
-        lookback_days: int = 252,
+        **kwargs: Any,
     ) -> ForecastResult:
         """Forecast using historical mean returns."""
+        lookback_days = kwargs.get("lookback_days", 252)
         if df.is_empty():
             raise ForecastingError("No data provided")
 
@@ -217,9 +234,10 @@ class VolatilityBasedForecaster(BaseForecaster):
         symbol: str,
         df: pl.DataFrame,
         horizon_days: int = 5,
-        vol_window: int = 20,
+        **kwargs: Any,
     ) -> ForecastResult:
         """Forecast using current volatility regime."""
+        vol_window = kwargs.get("vol_window", 20)
         if df.is_empty():
             raise ForecastingError("No data provided")
 
@@ -233,15 +251,17 @@ class VolatilityBasedForecaster(BaseForecaster):
         )
 
         # Get current volatility
-        current_vol = df_with_vol.tail(1)["annual_vol"][0]
-        if current_vol is None:
+        current_vol = _as_float_series(df_with_vol.tail(1)["annual_vol"])
+        if current_vol == 0.0:
             # Fallback to overall volatility
             returns = df_with_returns["return_pct"].drop_nulls()
             current_vol = float(returns.std() * np.sqrt(252))
 
         # Get recent mean return
         recent_returns = df_with_returns.tail(20)["return_pct"].drop_nulls()
-        mean_return = float(recent_returns.mean()) if len(recent_returns) > 0 else 0.0
+        mean_return = (
+            _as_float(recent_returns.mean()) if len(recent_returns) > 0 else 0.0
+        )
 
         # Convert annual vol to daily
         daily_vol = current_vol / np.sqrt(252)
@@ -293,9 +313,10 @@ class TrendMomentumForecaster(BaseForecaster):
         symbol: str,
         df: pl.DataFrame,
         horizon_days: int = 5,
-        ma_periods: list[int] | None = None,
+        **kwargs: Any,
     ) -> ForecastResult:
         """Forecast using trend and momentum signals."""
+        ma_periods = kwargs.get("ma_periods", [20, 50, 200])
         if df.is_empty():
             raise ForecastingError("No data provided")
 
@@ -323,7 +344,7 @@ class TrendMomentumForecaster(BaseForecaster):
 
         # Momentum (recent return)
         recent_returns = df_with_returns.tail(20)["return_pct"].drop_nulls()
-        momentum = float(recent_returns.mean()) if len(recent_returns) > 0 else 0.0
+        momentum = _as_float(recent_returns.mean()) if len(recent_returns) > 0 else 0.0
 
         # Combine signals
         trend_score = np.mean(trend_signals) if trend_signals else 0.0
@@ -334,7 +355,7 @@ class TrendMomentumForecaster(BaseForecaster):
         expected_daily = base_return + trend_adjustment
 
         # Volatility
-        daily_vol = float(recent_returns.std()) if len(recent_returns) > 1 else 0.02
+        daily_vol = _as_float(recent_returns.std()) if len(recent_returns) > 1 else 0.02
 
         prob_positive, horizon_vol, percentiles = self._percentile_forecast(
             expected_daily, daily_vol, horizon_days
@@ -390,6 +411,7 @@ class RandomWalkForecaster(BaseForecaster):
         symbol: str,
         df: pl.DataFrame,
         horizon_days: int = 5,
+        **kwargs: Any,
     ) -> ForecastResult:
         """Forecast using random walk with drift."""
         if df.is_empty():
@@ -434,7 +456,7 @@ class RandomWalkForecaster(BaseForecaster):
 class EnsembleForecaster(BaseForecaster):
     """Ensemble forecaster combining multiple models."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.forecasters = [
             HistoricalMeanForecaster(),
             VolatilityBasedForecaster(),
@@ -451,9 +473,10 @@ class EnsembleForecaster(BaseForecaster):
         symbol: str,
         df: pl.DataFrame,
         horizon_days: int = 5,
-        weights: list[float] | None = None,
+        **kwargs: Any,
     ) -> ForecastResult:
         """Forecast using weighted ensemble of models."""
+        weights = kwargs.get("weights")
         if df.is_empty():
             raise ForecastingError("No data provided")
 
