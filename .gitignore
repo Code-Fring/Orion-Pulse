@@ -1,0 +1,110 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test and coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+.hypothesis/
+
+# Ruff
+.ruff_cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Type checking
+*.pyc
+
+# DuckDB
+*.duckdb
+*.duckdb-wal
+*.duckdb-shm
+
+# Orion Pulse data
+.orion-pulse/
+
+# Logs
+*.log
+
+# CI/CD
+.venv/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# IDE specific
+.project
+.pydevproject
+.settings/
+
+# Spyder
+.spyproject
+.spyderproject
+
+# Jupyter
+.ipynb_checkpoints/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+!vscode/extensions.json
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache files
+.cache/
