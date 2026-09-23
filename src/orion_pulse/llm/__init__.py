@@ -31,9 +31,6 @@ class LLMResponse:
     model: str
     usage: dict[str, int] | None = None
     metadata: dict[str, Any] | None = None
-    model: str
-    usage: dict[str, int] = None  # prompt_tokens, completion_tokens, total_tokens
-    metadata: dict[str, Any] = None
 
 
 class LLMProviderError(Exception):
@@ -54,7 +51,7 @@ class LLMProvider(ABC):
         messages: list[LLMMessage],
         temperature: float = 0.3,
         max_tokens: int = 2000,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         """Generate completion from messages."""
         ...
@@ -96,7 +93,7 @@ class MockLLMProvider(LLMProvider):
         messages: list[LLMMessage],
         temperature: float = 0.3,
         max_tokens: int = 2000,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         # Return a mock response based on the last user message
         last_user_msg = next(
@@ -156,7 +153,7 @@ class NVIDIAProvider(LLMProvider):
         messages: list[LLMMessage],
         temperature: float = 0.3,
         max_tokens: int = 2000,
-        **kwargs,
+        **kwargs: Any,
     ) -> LLMResponse:
         if not self._enabled:
             raise LLMProviderError(
@@ -167,7 +164,7 @@ class NVIDIAProvider(LLMProvider):
 
         import requests
 
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "messages": [{"role": m.role, "content": m.content} for m in messages],
             "temperature": temperature,
@@ -175,7 +172,7 @@ class NVIDIAProvider(LLMProvider):
             "stream": False,
         }
 
-        headers = {
+        headers: dict[str, str] = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }

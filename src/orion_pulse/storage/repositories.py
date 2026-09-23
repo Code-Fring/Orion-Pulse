@@ -72,7 +72,7 @@ class MarketDataRepository:
             FROM market_data
             WHERE symbol = ? AND provider = ?
         """
-        params = [symbol.upper(), provider]
+        params: list[Any] = [symbol.upper(), provider]
 
         if start_date:
             query += " AND trading_date >= ?"
@@ -107,9 +107,7 @@ class MarketDataRepository:
             }
         )
 
-    def get_latest_date(
-        self, symbol: str, provider: str = "yfinance"
-    ) -> date | None:
+    def get_latest_date(self, symbol: str, provider: str = "yfinance") -> date | None:
         """Get the latest available date for a symbol."""
         result = self.db.fetchone(
             """
@@ -213,7 +211,7 @@ class NewsRepository:
             FROM news_articles
             WHERE 1=1
         """
-        params = []
+        params: list[Any] = []
 
         if symbol:
             query += " AND symbol = ?"
@@ -351,7 +349,7 @@ class ForecastRepository:
             FROM forecasts
             WHERE 1=1
         """
-        params = []
+        params: list[Any] = []
 
         if symbol:
             query += " AND symbol = ?"
@@ -412,7 +410,7 @@ class ForecastRepository:
                 (actual_return, actual_outcome, datetime.now(), forecast_id),
             )
 
-    def _row_to_forecast(self, row: tuple) -> dict[str, Any]:
+    def _row_to_forecast(self, row: tuple[Any, ...]) -> dict[str, Any]:
         return {
             "id": row[0],
             "symbol": row[1],
@@ -519,7 +517,7 @@ class BacktestRepository:
             FROM backtest_results
             WHERE 1=1
         """
-        params = []
+        params: list[Any] = []
 
         if symbol:
             query += " AND symbol = ?"
@@ -535,7 +533,7 @@ class BacktestRepository:
         results = self.db.fetchall(query, tuple(params))
         return [self._row_to_backtest(r) for r in results]
 
-    def _row_to_backtest(self, row: tuple) -> dict[str, Any]:
+    def _row_to_backtest(self, row: tuple[Any, ...]) -> dict[str, Any]:
         return {
             "id": row[0],
             "symbol": row[1],

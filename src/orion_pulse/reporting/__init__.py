@@ -417,7 +417,7 @@ class TerminalReportRenderer:
         self.console.print(bt_table)
         self.console.print()
 
-    def _render_news_events(self, events: list) -> None:
+    def _render_news_events(self, events: list[Any]) -> None:
         from rich import box
         from rich.table import Table
 

@@ -612,10 +612,14 @@ def report(
     # Generate comprehensive report
     try:
         with console.status("[cyan]Generating report...[/cyan]"):
+            # Filter out None forecast results
+            valid_forecasts = {
+                k: v for k, v in forecast_results.items() if v is not None
+            }
             report = report_generator.generate_report(
                 symbol=symbol,
                 analysis_report=analysis_report,
-                forecast_results=forecast_results,
+                forecast_results=valid_forecasts,
                 backtest_result=backtest_result,
                 include_news=news_days > 0,
                 news_days=news_days,

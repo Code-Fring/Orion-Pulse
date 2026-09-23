@@ -315,8 +315,8 @@ class NewsAnalysisService:
                 "avg_relevance": 0.0,
             }
 
-        by_category = {}
-        by_bias = {}
+        by_category: dict[str, int] = {}
+        by_bias: dict[str, int] = {}
 
         for event in events:
             cat = event.event_category.value

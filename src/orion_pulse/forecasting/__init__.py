@@ -13,6 +13,13 @@ import polars as pl
 from orion_pulse.storage.repositories import ForecastRepository
 
 
+def _as_float(value: object, default: float = 0.0) -> float:
+    """Safely convert a value to float, handling None."""
+    if value is None:
+        return default
+    return float(value)
+
+
 class ForecastModel(str, Enum):
     """Available forecast models."""
 
@@ -86,7 +93,7 @@ class BaseForecaster(ABC):
         symbol: str,
         df: pl.DataFrame,
         horizon_days: int = 5,
-        **kwargs,
+        **kwargs: Any,
     ) -> ForecastResult:
         """Generate forecast for a symbol."""
         ...
@@ -286,7 +293,7 @@ class TrendMomentumForecaster(BaseForecaster):
         symbol: str,
         df: pl.DataFrame,
         horizon_days: int = 5,
-        ma_periods: list[int] = None,
+        ma_periods: list[int] | None = None,
     ) -> ForecastResult:
         """Forecast using trend and momentum signals."""
         if df.is_empty():
@@ -531,7 +538,7 @@ class ForecastingService:
         model: ForecastModel = ForecastModel.ENSEMBLE,
         horizon_days: int = 5,
         save_to_db: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> ForecastResult:
         """Generate forecast using specified model."""
         forecaster = self.forecasters.get(model)
@@ -554,9 +561,9 @@ class ForecastingService:
         df: pl.DataFrame,
         horizon_days: int = 5,
         save_to_db: bool = True,
-    ) -> dict[str, ForecastResult]:
+    ) -> dict[str, ForecastResult | None]:
         """Generate forecasts from all models."""
-        results = {}
+        results: dict[str, ForecastResult | None] = {}
         for model_name, forecaster in self.forecasters.items():
             try:
                 results[model_name.value] = forecaster.forecast(
@@ -574,4 +581,7 @@ class ForecastingService:
 
     def get_forecaster(self, model: ForecastModel) -> BaseForecaster:
         """Get a specific forecaster."""
-        return self.forecasters.get(model)
+        forecaster = self.forecasters.get(model)
+        if forecaster is None:
+            raise ForecastingError(f"Unknown model: {model}")
+        return forecaster

@@ -1,7 +1,9 @@
 """Database connection and schema management for Orion Pulse."""
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import duckdb
 
@@ -24,7 +26,7 @@ class Database:
         return self._conn
 
     @contextmanager
-    def connection(self):
+    def connection(self) -> Iterator[duckdb.DuckDBPyConnection]:
         """Context manager for database connection."""
         conn = self._get_connection()
         try:
@@ -183,22 +185,26 @@ class Database:
             self._conn.close()
             self._conn = None
 
-    def execute(self, query: str, params: tuple = ()) -> duckdb.DuckDBPyRelation:
+    def execute(self, query: str, params: tuple[Any, ...] = ()) -> Any:
         """Execute a query and return relation."""
         with self.connection() as conn:
             return conn.execute(query, params)
 
-    def fetchall(self, query: str, params: tuple = ()) -> list:
+    def fetchall(
+        self, query: str, params: tuple[Any, ...] = ()
+    ) -> list[tuple[Any, ...]]:
         """Execute query and fetch all results."""
         with self.connection() as conn:
             return conn.execute(query, params).fetchall()
 
-    def fetchone(self, query: str, params: tuple = ()) -> tuple | None:
+    def fetchone(
+        self, query: str, params: tuple[Any, ...] = ()
+    ) -> tuple[Any, ...] | None:
         """Execute query and fetch one result."""
         with self.connection() as conn:
             return conn.execute(query, params).fetchone()
 
-    def fetch_df(self, query: str, params: tuple = ()) -> "duckdb.DuckDBPyRelation":
+    def fetch_df(self, query: str, params: tuple[Any, ...] = ()) -> Any:
         """Execute query and return as DataFrame."""
         with self.connection() as conn:
             return conn.execute(query, params).df()

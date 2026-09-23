@@ -1,6 +1,5 @@
 """Technical indicators for market analysis."""
 
-
 import polars as pl
 
 from orion_pulse.core.models import (
@@ -98,7 +97,7 @@ def classify_trend(
 def analyze_trend(
     symbol: str,
     df: pl.DataFrame,
-    ma_periods: list[int] = None,
+    ma_periods: list[int] | None = None,
     volatility_window: int = 20,
     volume_window: int = 20,
 ) -> TrendAnalysis:
@@ -163,7 +162,7 @@ def analyze_trend(
 
 def prepare_analysis_data(
     df: pl.DataFrame,
-    ma_periods: list[int] = None,
+    ma_periods: list[int] | None = None,
     volatility_window: int = 20,
     volume_window: int = 20,
 ) -> pl.DataFrame:

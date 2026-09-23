@@ -3,6 +3,7 @@
 import logging
 import uuid
 from datetime import datetime, timedelta
+from typing import Any
 
 import requests
 
@@ -68,7 +69,7 @@ class NewsAPIProvider(NewsProvider):
         if start_date is None:
             start_date = end_date - timedelta(days=7)
 
-        params = {
+        params: dict[str, Any] = {
             "q": query,
             "from": start_date.strftime("%Y-%m-%d"),
             "to": end_date.strftime("%Y-%m-%d"),
@@ -113,7 +114,9 @@ class NewsAPIProvider(NewsProvider):
                 provider=self.get_provider_name(),
             ) from e
 
-    def _parse_article(self, item: dict, symbol: str | None) -> NewsArticle | None:
+    def _parse_article(
+        self, item: dict[str, Any], symbol: str | None
+    ) -> NewsArticle | None:
         """Parse NewsAPI article into NewsArticle."""
         try:
             published_at = datetime.fromisoformat(
@@ -143,7 +146,7 @@ class NewsAPIProvider(NewsProvider):
             raw_data=item,
         )
 
-    def _calculate_relevance(self, item: dict, symbol: str | None) -> float:
+    def _calculate_relevance(self, item: dict[str, Any], symbol: str | None) -> float:
         """Calculate relevance score for an article."""
         if not symbol:
             return 0.5
@@ -161,7 +164,7 @@ class NewsAPIProvider(NewsProvider):
 
         return 0.3
 
-    def _detect_category(self, item: dict) -> NewsCategory | None:
+    def _detect_category(self, item: dict[str, Any]) -> NewsCategory | None:
         """Detect news category from article content."""
         text = f"{item.get('title', '')} {item.get('description', '')}".lower()
 
@@ -218,7 +221,7 @@ class NewsAPIProvider(NewsProvider):
 
         return NewsCategory.GENERAL
 
-    def _extract_entities(self, item: dict) -> list[str]:
+    def _extract_entities(self, item: dict[str, Any]) -> list[str]:
         """Extract named entities (simplified)."""
         # In a real implementation, this would use NER
         # For now, return empty list

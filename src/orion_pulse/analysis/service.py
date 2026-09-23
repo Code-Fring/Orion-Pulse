@@ -1,6 +1,6 @@
 """Analysis service for market data."""
 
-from datetime import date
+from datetime import datetime
 
 import polars as pl
 
@@ -70,7 +70,7 @@ class AnalysisService:
         # Build report
         report = AnalysisReport(
             symbol=symbol.upper(),
-            generated_at=date.today(),
+            generated_at=datetime.now(),
             trend_analysis=trend_analysis,
             lookback_days=lookback_days,
             data_points=len(enriched_data),
