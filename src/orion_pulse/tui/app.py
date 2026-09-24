@@ -16,10 +16,15 @@ if TYPE_CHECKING:
 from orion_pulse.tui.command_engine import CommandEngine, CommandRegistry
 from orion_pulse.tui.commands import (
     AnalyzeCommand,
+    BacktestCommand,
+    ChatCommand,
     ConnectCommand,
     ExitCommand,
+    ForecastCommand,
     HelpCommand,
+    NewsCommand,
     ProvidersCommand,
+    SettingsCommand,
 )
 from orion_pulse.tui.config_manager import initialize_config
 from orion_pulse.tui.provider_manager import ProviderManager
@@ -51,7 +56,12 @@ class OrionPulseApp(App[None]):
         """Set up available commands."""
         commands = [
             AnalyzeCommand(self),
+            BacktestCommand(self),
+            ChatCommand(self),
+            ForecastCommand(self),
+            NewsCommand(self),
             ProvidersCommand(self),
+            SettingsCommand(self),
             ConnectCommand(self),
             HelpCommand(self),
             ExitCommand(self),
