@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from textual import on
@@ -11,6 +11,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Header, Input, Label, Static
 
 from orion_pulse.data.providers.factory import ProviderFactory
+from orion_pulse.tui.config_manager import get_config
 
 if TYPE_CHECKING:
     from textual.app import ComposeResult
@@ -26,6 +27,29 @@ class ProviderManager:
         self.app = app
         self.providers: dict[str, MarketDataProvider] = {}
         self.active_provider: str | None = None
+        self._load_configured_providers()
+
+    def _load_configured_providers(self) -> None:
+        """Load providers from config with saved credentials."""
+        config = get_config()
+        for provider_name, provider_config in config.providers.items():
+            if provider_config.enabled:
+                self._initialize_provider(provider_name, provider_config.credentials)
+
+    def _initialize_provider(
+        self, provider_name: str, credentials: dict[str, str]
+    ) -> bool:
+        """Initialize a provider with credentials."""
+        try:
+            if provider_name == "yfinance":
+                provider = ProviderFactory.create_provider(provider_name)
+                self.providers[provider_name] = provider
+                self.active_provider = provider_name
+                return True
+            # Future providers (alpha_vantage, polygon, etc.) would go here
+            return False
+        except Exception:
+            return False
 
     def get_available_providers(self) -> list[str]:
         """Get list of available provider names."""
@@ -66,12 +90,30 @@ class ProviderManager:
         if not provider:
             return f"Provider '{self.active_provider}' not initialized"
 
-        # Try to get a quick status check
+        return f"Connected to {self.active_provider}"
+
+    def connect_provider(self, provider_name: str, credentials: dict[str, str]) -> bool:
+        """Connect to a provider with credentials and save to config."""
         try:
-            # This is a placeholder - actual implementation would depend on the provider
-            return f"Connected to {self.active_provider}"
+            # Save credentials securely
+            config = get_config()
+            if provider_name not in config.providers:
+                config.providers[provider_name] = {
+                    "name": provider_name,
+                    "enabled": True,
+                    "credentials": {},
+                }
+            for key, value in credentials.items():
+                config.set_secure_credential(provider_name, key, value)
+
+            # Initialize provider
+            success = self._initialize_provider(provider_name, credentials)
+            if success:
+                # Save config to file
+                config.save_to_file(Path.home() / ".orion-pulse" / "config.json")
+            return success
         except Exception:
-            return f"Provider '{self.active_provider}' configured but not connected"
+            return False
 
 
 class ConnectScreen(ModalScreen[dict[str, Any] | None]):
@@ -110,7 +152,7 @@ class ConnectScreen(ModalScreen[dict[str, Any] | None]):
         container = self.query_one("#connect-container", Vertical)
 
         # Clear existing fields
-        for child in container.children[2:]:  # Skip title and error message
+        for child in list(container.children)[2:]:  # Skip title and error message
             child.remove()
 
         # Add fields based on provider
@@ -119,8 +161,33 @@ class ConnectScreen(ModalScreen[dict[str, Any] | None]):
             container.mount(
                 Label("Yahoo Finance doesn't require credentials", id="no-creds")
             )
+            container.mount(
+                Label("Press Connect to enable Yahoo Finance provider", id="yf-hint")
+            )
+        elif self.provider_name == "newsapi":
+            # Check for existing credentials
+            config = get_config()
+            existing_key = config.get_secure_credential("newsapi", "api_key")
+
+            container.mount(Label("NewsAPI.org API Key:", id="api-key-label"))
+            api_input = Input(
+                placeholder="Enter NewsAPI.org API key",
+                id="api-key-input",
+            )
+            if existing_key:
+                api_input.value = "•" * len(existing_key)
+                api_input.placeholder = (
+                    "API key already configured (leave blank to keep)"
+                )
+            container.mount(api_input)
+            container.mount(
+                Label(
+                    "Get a free API key at https://newsapi.org/register",
+                    id="newsapi-hint",
+                )
+            )
         else:
-            # Add generic credential fields
+            # Generic credential fields
             container.mount(Label("API Key:", id="api-key-label"))
             container.mount(Input(placeholder="Enter API key", id="api-key-input"))
 
@@ -131,33 +198,33 @@ class ConnectScreen(ModalScreen[dict[str, Any] | None]):
         error_label.update("")
 
         try:
-            # Validate and save credentials
-            if self.provider_name != "yfinance":
+            if self.provider_name == "yfinance":
+                # Yahoo Finance just needs to be enabled
+                self.credentials = {}
+            elif self.provider_name == "newsapi":
                 api_key_input = self.query_one("#api-key-input", Input)
                 api_key = api_key_input.value.strip()
                 if not api_key:
                     error_label.update("API key is required")
                     return
-                self.credentials["api_key"] = api_key
+                self.credentials = {"api_key": api_key}
+            else:
+                api_key_input = self.query_one("#api-key-input", Input)
+                api_key = api_key_input.value.strip()
+                if not api_key:
+                    error_label.update("API key is required")
+                    return
+                self.credentials = {"api_key": api_key}
 
-            # Create provider instance
-            provider = ProviderFactory.get_provider(self.provider_name)
+            # Connect and save
+            success = self.provider_manager.connect_provider(
+                self.provider_name, self.credentials
+            )
+            if success:
+                self.dismiss(self.credentials)
+            else:
+                error_label.update("Connection failed: unable to initialize provider")
 
-            # Store credentials securely
-            if self.credentials:
-                # In a real implementation, we'd use keyring or similar
-                # For now, we'll just store in memory
-                for key, value in self.credentials.items():
-                    os.environ[
-                        f"ORION_PULSE_{self.provider_name.upper()}_{key.upper()}"
-                    ] = value
-
-            # Add to provider manager
-            self.provider_manager.add_provider(self.provider_name, provider)
-            self.provider_manager.set_active_provider(self.provider_name)
-
-            # Dismiss with success
-            self.dismiss(self.credentials)
         except Exception as e:
             error_label.update(f"Connection failed: {str(e)}")
 

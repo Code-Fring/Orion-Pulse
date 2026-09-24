@@ -10,11 +10,11 @@ class ProviderFactory:
     _providers: dict[str, MarketDataProvider] = {}
 
     @classmethod
-    def get_provider(cls, name: str = "yfinance") -> MarketDataProvider:
+    def get_provider(cls, name: str = "yfinance", **kwargs) -> MarketDataProvider:
         """Get or create a provider instance."""
         if name not in cls._providers:
             if name == "yfinance":
-                cls._providers[name] = YFinanceProvider()
+                cls._providers[name] = YFinanceProvider(**kwargs)
             else:
                 raise ValueError(f"Unknown provider: {name}")
 
@@ -34,3 +34,10 @@ class ProviderFactory:
     def clear_cache(cls) -> None:
         """Clear provider cache (useful for testing)."""
         cls._providers.clear()
+
+    @classmethod
+    def create_provider(cls, name: str, **kwargs) -> MarketDataProvider:
+        """Create a new provider instance (not cached)."""
+        if name == "yfinance":
+            return YFinanceProvider(**kwargs)
+        raise ValueError(f"Unknown provider: {name}")
