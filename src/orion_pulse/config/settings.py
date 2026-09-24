@@ -14,6 +14,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        env_prefix="ORION_PULSE_",
     )
 
     # Data storage
@@ -41,14 +42,19 @@ class Settings(BaseSettings):
         default=365,
         description="Default lookback period for analysis in days",
     )
-    default_ma_periods: list[int] = Field(
-        default_factory=lambda: [20, 50, 200],
-        description="Default moving average periods",
+    default_ma_periods: str = Field(
+        default="20,50,200",
+        description="Default moving average periods (comma-separated)",
     )
     volatility_window: int = Field(
         default=20,
         description="Window for rolling volatility calculation",
     )
+
+    @property
+    def ma_periods_list(self) -> list[int]:
+        """Parse comma-separated MA periods into list of ints."""
+        return [int(x.strip()) for x in self.default_ma_periods.split(",") if x.strip()]
 
     # Output
     json_output: bool = Field(
@@ -75,7 +81,29 @@ class Settings(BaseSettings):
     )
     nvidia_api_key: str | None = Field(
         default=None,
-        description="NVIDIA API key for LLM",
+        description="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",
+    )
+
+    # LLM Settings
+    llm_model: str = Field(
+        default="nvidia/llama-3.1-nemotron-70b-instruct",
+        description="Default LLM model to use",
+    )
+
+    # Display Settings
+    currency: str = Field(
+        default="USD",
+        description="Default currency for display",
+    )
+    timezone: str = Field(
+        default="UTC",
+        description="Default timezone for timestamps",
+    )
+
+    # Provider Settings
+    default_provider: str = Field(
+        default="yfinance",
+        description="Default market data provider",
     )
 
 

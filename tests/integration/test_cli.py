@@ -40,7 +40,6 @@ class TestAnalyzeCommand:
             result = runner.invoke(app, ["analyze", "TEST"])
 
             assert result.exit_code == 0
-            assert "ORION PULSE" in result.output
             assert "TEST" in result.output
 
     def test_analyze_with_json_output(self):
@@ -144,7 +143,7 @@ class TestVersionCallback:
     def test_version_flag(self):
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
-        assert "Orion Pulse v0.1.0" in result.output
+        assert "Orion Pulse v0.2.0" in result.output
 
 
 class TestHelp:

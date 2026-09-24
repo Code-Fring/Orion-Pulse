@@ -74,9 +74,6 @@ dmypy.json
 # Logs
 *.log
 
-# CI/CD
-.venv/
-
 # Temporary files
 tmp/
 temp/
@@ -94,13 +91,6 @@ temp/
 # Jupyter
 .ipynb_checkpoints/
 
-# PyCharm
-.idea/
-
-# VS Code
-.vscode/
-!vscode/extensions.json
-
 # Local database files
 *.db
 *.sqlite
@@ -108,3 +98,6 @@ temp/
 
 # Cache files
 .cache/
+
+# Coverage reports
+coverage.xml

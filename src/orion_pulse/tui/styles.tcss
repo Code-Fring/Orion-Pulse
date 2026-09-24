@@ -1,0 +1,108 @@
+/* Orion Pulse TUI Styles */
+
+Screen {
+    background: $surface;
+}
+
+#main-content {
+    height: 1fr;
+    border: solid $primary;
+    margin: 1 1;
+    padding: 1;
+}
+
+#output {
+    height: 1fr;
+    background: $surface;
+    color: $text;
+    overflow-y: auto;
+}
+
+#input-area {
+    height: auto;
+    margin: 0 1 1 1;
+    padding: 1;
+    border: solid $primary;
+    background: $surface-darken-1;
+}
+
+#input-container {
+    width: 100%;
+}
+
+#command-input {
+    width: 100%;
+    border: none;
+    background: $surface;
+    color: $text;
+}
+
+#command-input:focus {
+    border: solid $accent;
+}
+
+#connect-container {
+    width: 60;
+    height: auto;
+    padding: 2;
+    border: solid $primary;
+    background: $surface;
+}
+
+#title {
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+    color: $primary;
+}
+
+#error-message {
+    color: $error;
+    margin-bottom: 1;
+    text-style: bold;
+}
+
+#no-creds {
+    color: $text-muted;
+    text-align: center;
+    margin: 1 0;
+}
+
+#buttons {
+    margin-top: 1;
+    width: 100%;
+}
+
+#buttons Button {
+    width: 1fr;
+    margin: 0 1;
+}
+
+Header {
+    background: $primary;
+    color: $text;
+    text-style: bold;
+}
+
+Footer {
+    background: $surface-darken-1;
+    color: $text-muted;
+}
+
+RichLog {
+    background: $surface;
+    color: $text;
+}
+
+OptionList {
+    border: solid $primary;
+}
+
+OptionList > .option-list--option {
+    padding: 0 1;
+}
+
+OptionList > .option-list--option.--highlight {
+    background: $primary;
+    color: $text;
+}

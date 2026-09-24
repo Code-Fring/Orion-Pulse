@@ -98,7 +98,6 @@ class TestRenderAnalysisReport:
             render_analysis_report(report, json_output=False)
 
         captured = capsys.readouterr()
-        assert "ORION PULSE" in captured.out
         assert "TEST" in captured.out
         assert "BULLISH" in captured.out
         assert "$150.00" in captured.out

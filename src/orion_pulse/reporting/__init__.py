@@ -55,10 +55,11 @@ class ReportGenerator:
 
     def __init__(
         self,
-        llm_provider_name: str = "mock",
+        llm_provider_name: str = "nvidia",
+        llm_model: str | None = None,
         news_service: NewsAnalysisService | None = None,
     ):
-        self.llm = LLMProviderFactory.get_provider(llm_provider_name)
+        self.llm = LLMProviderFactory.get_provider(llm_provider_name, model=llm_model)
         self.news_service = news_service
 
     def generate_report(

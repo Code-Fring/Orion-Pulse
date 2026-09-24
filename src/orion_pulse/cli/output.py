@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from rich import box
+from rich.align import Align
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -11,6 +12,18 @@ from rich.text import Text
 from orion_pulse.core.models import AnalysisReport, Trend
 
 console = Console()
+
+
+ORION_BANNER = r"""
+    ██████╗ ██████╗ ██████╗ ██████╗ ███████╗███████╗████████╗
+    ██╔══██╗██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔════╝╚══██╔══╝
+    ██████╔╝██████╔╝██████╔╝██████╔╝█████╗  ███████╗   ██║
+    ██╔═══╝ ██╔══██╗██╔══██╗██╔══██╗██╔══╝  ╚════██║   ██║
+    ██║     ██║  ██║██║  ██║██║  ██║███████╗███████║   ██║
+    ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝   ╚═╝
+"""
+
+ORION_COMPACT = "    ██████╗ ██████╗ ██████╗ ██████╗ ███████╗███████╗████████╗"
 
 
 def format_trend(trend: Trend, no_color: bool = False) -> Text:
@@ -57,6 +70,30 @@ def format_volatility(value: float | None) -> str:
     return f"{value:.2%}"
 
 
+def print_banner(compact: bool = False, version: str = "0.1.0") -> None:
+    """Print the Orion Pulse banner."""
+    if compact:
+        text = Text(ORION_COMPACT, style="bold cyan")
+        text.append(f"  v{version}", style="dim")
+        console.print(Align.center(text))
+    else:
+        text = Text(ORION_BANNER, style="bold cyan")
+        text.append(f"    v{version}", style="dim")
+        console.print(Align.center(text))
+
+
+def print_section(title: str, icon: str = "◆") -> None:
+    """Print a section header."""
+    console.print()
+    console.print(
+        Text.assemble(
+            (f"  {icon} ", "bold cyan"),
+            (title, "bold white"),
+        )
+    )
+    console.print()
+
+
 def render_analysis_report(
     report: AnalysisReport, json_output: bool = False, no_color: bool = False
 ) -> None:
@@ -69,23 +106,29 @@ def render_analysis_report(
 
     ta = report.trend_analysis
 
-    # Header
-    header = Text.assemble(
-        ("ORION PULSE", "bold cyan"),
+    # Compact banner for analysis
+    print_banner(compact=True)
+
+    # Symbol header panel
+    header_text = Text.assemble(
+        (ta.symbol, "bold white"),
         ("  ", ""),
-        (f"v{__import__('orion_pulse').__version__}", "dim"),
+        (format_price(ta.last_price), "bold cyan"),
+        ("  ", ""),
+        format_trend(ta.trend, no_color),
     )
-    console.print(Panel(header, box=box.DOUBLE, border_style="cyan"))
+    console.print(
+        Panel(header_text, box=box.ROUNDED, border_style="cyan", padding=(0, 1))
+    )
     console.print()
 
     # Symbol info
-    info_table = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
-    info_table.add_column("Label", style="dim", width=16)
+    info_table = Table(
+        box=box.SIMPLE, show_header=False, pad_edge=False, collapse_padding=True
+    )
+    info_table.add_column("Label", style="dim", width=14)
     info_table.add_column("Value", style="white")
 
-    info_table.add_row("Symbol:", ta.symbol)
-    info_table.add_row("Last Price:", format_price(ta.last_price))
-    info_table.add_row("Trend:", format_trend(ta.trend, no_color))
     info_table.add_row("As of:", str(ta.as_of))
     info_table.add_row("Data Points:", str(report.data_points))
     info_table.add_row("Lookback:", f"{report.lookback_days} days")
@@ -94,44 +137,32 @@ def render_analysis_report(
     console.print()
 
     # Moving Averages
-    ma_table = Table(title="Moving Averages", box=box.SIMPLE, show_header=True)
+    print_section("Moving Averages", "📈")
+    ma_table = Table(box=box.SIMPLE, show_header=True, collapse_padding=True)
     ma_table.add_column("Period", style="cyan", justify="right")
     ma_table.add_column("Value", style="white", justify="right")
-    ma_table.add_column("Price vs MA", style="white", justify="center")
+    ma_table.add_column("vs Price", style="white", justify="center")
 
-    if ta.ma_20 is not None:
-        signal = (
-            "▲"
-            if ta.price_above_ma20
-            else "▼"
-            if ta.price_above_ma20 is not None
-            else "–"
-        )
-        ma_table.add_row("20-Day", format_price(ta.ma_20), signal)
-    if ta.ma_50 is not None:
-        signal = (
-            "▲"
-            if ta.price_above_ma50
-            else "▼"
-            if ta.price_above_ma50 is not None
-            else "–"
-        )
-        ma_table.add_row("50-Day", format_price(ta.ma_50), signal)
-    if ta.ma_200 is not None:
-        signal = (
-            "▲"
-            if ta.price_above_ma200
-            else "▼"
-            if ta.price_above_ma200 is not None
-            else "–"
-        )
-        ma_table.add_row("200-Day", format_price(ta.ma_200), signal)
+    for period, value, above in [
+        (20, ta.ma_20, ta.price_above_ma20),
+        (50, ta.ma_50, ta.price_above_ma50),
+        (200, ta.ma_200, ta.price_above_ma200),
+    ]:
+        if value is not None:
+            signal = "▲" if above else "▼" if above is not None else "–"
+            signal_style = "green" if above else "red" if above is not None else "dim"
+            ma_table.add_row(
+                f"{period}-Day",
+                format_price(value),
+                Text(signal, style=signal_style),
+            )
 
     console.print(ma_table)
     console.print()
 
     # Indicators
-    ind_table = Table(title="Indicators", box=box.SIMPLE, show_header=True)
+    print_section("Indicators", "📊")
+    ind_table = Table(box=box.SIMPLE, show_header=True, collapse_padding=True)
     ind_table.add_column("Indicator", style="cyan")
     ind_table.add_column("Value", style="white", justify="right")
 
@@ -142,7 +173,8 @@ def render_analysis_report(
     console.print()
 
     # Trend Signals
-    sig_table = Table(title="Trend Signals", box=box.SIMPLE, show_header=True)
+    print_section("Trend Signals", "🎯")
+    sig_table = Table(box=box.SIMPLE, show_header=True, collapse_padding=True)
     sig_table.add_column("Signal", style="cyan")
     sig_table.add_column("Status", style="white", justify="center")
 
@@ -156,11 +188,11 @@ def render_analysis_report(
 
     for label, value in signals:
         if value is None:
-            status = "–"
+            status = Text("–", style="dim")
         elif value:
-            status = "[green]✓[/green]" if not no_color else "YES"
+            status = Text("✓", style="green")
         else:
-            status = "[red]✗[/red]" if not no_color else "NO"
+            status = Text("✗", style="red")
         sig_table.add_row(label, status)
 
     console.print(sig_table)
@@ -171,4 +203,24 @@ def render_analysis_report(
         ("Generated: ", "dim"),
         (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "dim"),
     )
-    console.print(footer)
+    console.print(Align.right(footer))
+
+
+def print_error(message: str) -> None:
+    """Print error message."""
+    console.print(Text.assemble(("✗ ", "bold red"), (message, "red")))
+
+
+def print_success(message: str) -> None:
+    """Print success message."""
+    console.print(Text.assemble(("✓ ", "bold green"), (message, "green")))
+
+
+def print_warning(message: str) -> None:
+    """Print warning message."""
+    console.print(Text.assemble(("⚠ ", "bold yellow"), (message, "yellow")))
+
+
+def print_info(message: str) -> None:
+    """Print info message."""
+    console.print(Text.assemble(("ℹ ", "bold cyan"), (message, "cyan")))

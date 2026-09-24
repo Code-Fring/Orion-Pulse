@@ -37,7 +37,7 @@ class AnalysisService:
             lookback_days = settings.default_lookback_days
 
         if ma_periods is None:
-            ma_periods = settings.default_ma_periods
+            ma_periods = settings.ma_periods_list
 
         if volatility_window is None:
             volatility_window = settings.volatility_window

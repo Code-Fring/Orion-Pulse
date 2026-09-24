@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated
 
+import polars as pl
 import typer
 from rich import box
 from rich.console import Console
@@ -19,6 +20,13 @@ from orion_pulse.forecasting import ForecastingService, ForecastModel
 from orion_pulse.llm import LLMProviderFactory
 from orion_pulse.news import NewsAnalysisService, NewsProviderFactory
 from orion_pulse.reporting import ReportGenerator, TerminalReportRenderer
+
+
+def _clean_market_data(raw_data: pl.DataFrame) -> pl.DataFrame:
+    """Remove rows with NaN close price (e.g., today's incomplete data)."""
+    clean = raw_data.filter(pl.col("close").is_not_nan())
+    return clean
+
 
 app = typer.Typer(
     name="orion-pulse",
@@ -52,6 +60,10 @@ def main(
             help="Show version and exit",
         ),
     ] = None,
+    interactive: Annotated[
+        bool,
+        typer.Option("--interactive", "-i", help="Launch interactive TUI mode"),
+    ] = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Output as JSON"),
@@ -62,6 +74,11 @@ def main(
     ] = False,
 ) -> None:
     """Orion Pulse - CLI-first market intelligence platform."""
+    if interactive:
+        from orion_pulse.tui import tui_main
+
+        tui_main()
+        raise typer.Exit()
     settings.json_output = json_output
     settings.no_color = no_color
 
@@ -348,6 +365,12 @@ def forecast(
         console.print(f"[red]Error:[/red] No data available for {symbol}")
         raise typer.Exit(code=1) from None
 
+    # Clean data: remove rows with NaN close price (e.g., today's incomplete data)
+    raw_data = _clean_market_data(raw_data)
+    if raw_data.is_empty():
+        console.print(f"[red]Error:[/red] No valid price data for {symbol}")
+        raise typer.Exit(code=1) from None
+
     # Generate forecasts
     try:
         with console.status("[cyan]Generating forecast...[/cyan]"):
@@ -521,7 +544,14 @@ def report(
     llm_provider: Annotated[
         str,
         typer.Option("--llm", help="LLM provider for synthesis"),
-    ] = "mock",
+    ] = "nvidia",
+    llm_model: Annotated[
+        str,
+        typer.Option(
+            "--llm-model",
+            help="LLM model to use (e.g., nvidia/llama-3.1-nemotron-70b-instruct)",
+        ),
+    ] = "nvidia/llama-3.1-nemotron-70b-instruct",
     no_llm: Annotated[
         bool,
         typer.Option("--no-llm", help="Disable LLM synthesis"),
@@ -550,7 +580,9 @@ def report(
         backtest_engine = BacktestEngine()
         news_service = NewsAnalysisService()
         report_generator = ReportGenerator(
-            llm_provider_name=llm_provider, news_service=news_service
+            llm_provider_name=llm_provider,
+            llm_model=llm_model,
+            news_service=news_service,
         )
     except ValueError as e:
         console.print(f"[red]Error:[/red] {e}")
@@ -566,6 +598,12 @@ def report(
 
     if raw_data.is_empty():
         console.print(f"[red]Error:[/red] No data available for {symbol}")
+        raise typer.Exit(code=1) from None
+
+    # Clean data: remove rows with NaN close price (e.g., today's incomplete data)
+    raw_data = _clean_market_data(raw_data)
+    if raw_data.is_empty():
+        console.print(f"[red]Error:[/red] No valid price data for {symbol}")
         raise typer.Exit(code=1) from None
 
     # Run analysis
@@ -650,6 +688,34 @@ def config(
         bool,
         typer.Option("--init", help="Create example .env file"),
     ] = False,
+    set_key: Annotated[
+        str | None,
+        typer.Option("--set", help="Set a config value (format: KEY=VALUE)"),
+    ] = None,
+    set_model: Annotated[
+        str | None,
+        typer.Option("--model", help="Set default LLM model"),
+    ] = None,
+    set_currency: Annotated[
+        str | None,
+        typer.Option("--currency", help="Set default currency (USD, EUR, etc.)"),
+    ] = None,
+    set_timezone: Annotated[
+        str | None,
+        typer.Option("--timezone", help="Set default timezone (UTC, US/Eastern, etc.)"),
+    ] = None,
+    set_lookback: Annotated[
+        int | None,
+        typer.Option("--lookback", help="Set default lookback days"),
+    ] = None,
+    set_ma: Annotated[
+        str | None,
+        typer.Option("--ma", help="Set default MA periods (comma-separated)"),
+    ] = None,
+    set_provider: Annotated[
+        str | None,
+        typer.Option("--provider", help="Set default market data provider"),
+    ] = None,
 ) -> None:
     """Manage configuration."""
     if init:
@@ -678,6 +744,13 @@ ORION_PULSE_NEWSAPI_KEY=your_newsapi_key_here
 ORION_PULSE_NVIDIA_API_KEY=your_nvidia_api_key_here
 ORION_PULSE_ALPHA_VANTAGE_KEY=your_alpha_vantage_key_here
 ORION_PULSE_POLYGON_KEY=your_polygon_key_here
+
+# LLM Settings
+ORION_PULSE_LLM_MODEL=nvidia/llama-3.1-nemotron-70b-instruct
+
+# Display Settings
+ORION_PULSE_CURRENCY=USD
+ORION_PULSE_TIMEZONE=UTC
 """
         env_path = Path(".env")
         if env_path.exists() and not typer.confirm(".env already exists. Overwrite?"):
@@ -687,6 +760,75 @@ ORION_PULSE_POLYGON_KEY=your_polygon_key_here
         env_path.write_text(env_content)
         console.print(f"[green]Created {env_path.absolute()}[/green]")
         console.print("Edit this file to add your API keys.")
+        return
+
+    # Handle setting values
+    if any(
+        [
+            set_key,
+            set_model,
+            set_currency,
+            set_timezone,
+            set_lookback,
+            set_ma,
+            set_provider,
+        ]
+    ):
+        env_path = Path(".env")
+        if not env_path.exists():
+            console.print(
+                "[red]No .env file found. Run 'orion-pulse config --init' first.[/red]"
+            )
+            raise typer.Exit(code=1)
+
+        # Read current .env
+        lines = env_path.read_text().splitlines()
+        updates = {}
+
+        if set_key:
+            try:
+                k, v = set_key.split("=", 1)
+                updates[k.strip()] = v.strip()
+            except ValueError:
+                console.print("[red]Invalid format. Use KEY=VALUE[/red]")
+                raise typer.Exit(code=1) from None
+
+        if set_model:
+            updates["ORION_PULSE_LLM_MODEL"] = set_model
+        if set_currency:
+            updates["ORION_PULSE_CURRENCY"] = set_currency
+        if set_timezone:
+            updates["ORION_PULSE_TIMEZONE"] = set_timezone
+        if set_lookback:
+            updates["ORION_PULSE_DEFAULT_LOOKBACK_DAYS"] = str(set_lookback)
+        if set_ma:
+            updates["ORION_PULSE_DEFAULT_MA_PERIODS"] = set_ma
+        if set_provider:
+            updates["ORION_PULSE_DEFAULT_PROVIDER"] = set_provider
+
+        # Update lines
+        existing_keys = set()
+        new_lines = []
+        for line in lines:
+            if "=" in line and not line.strip().startswith("#"):
+                key = line.split("=")[0].strip()
+                if key in updates:
+                    new_lines.append(f"{key}={updates[key]}")
+                    existing_keys.add(key)
+                else:
+                    new_lines.append(line)
+            else:
+                new_lines.append(line)
+
+        # Add new keys not already present
+        for key, value in updates.items():
+            if key not in existing_keys:
+                new_lines.append(f"{key}={value}")
+
+        env_path.write_text("\n".join(new_lines) + "\n")
+        console.print(f"[green]Updated .env with {len(updates)} setting(s)[/green]")
+        for k, v in updates.items():
+            console.print(f"  {k}={v}")
         return
 
     if show:
@@ -704,10 +846,16 @@ ORION_PULSE_POLYGON_KEY=your_polygon_key_here
             "yfinance_enabled": settings.yfinance_enabled,
             "yfinance_timeout": settings.yfinance_timeout,
             "default_lookback_days": settings.default_lookback_days,
-            "default_ma_periods": settings.default_ma_periods,
+            "default_ma_periods": settings.ma_periods_list,
             "volatility_window": settings.volatility_window,
             "json_output": settings.json_output,
             "no_color": settings.no_color,
+            "default_provider": getattr(settings, "default_provider", "yfinance"),
+            "llm_model": getattr(
+                settings, "llm_model", "nvidia/llama-3.1-nemotron-70b-instruct"
+            ),
+            "currency": getattr(settings, "currency", "USD"),
+            "timezone": getattr(settings, "timezone", "UTC"),
             "newsapi_configured": bool(settings.newsapi_key),
             "nvidia_api_configured": bool(settings.nvidia_api_key),
         }
@@ -718,7 +866,9 @@ ORION_PULSE_POLYGON_KEY=your_polygon_key_here
         console.print(table)
         return
 
-    console.print("Use --show to view config or --init to create example .env file")
+    console.print(
+        "Use --show to view config, --init to create .env, or --set/--model/--currency/--timezone/--lookback/--ma/--provider to update values"
+    )
 
 
 if __name__ == "__main__":

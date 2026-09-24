@@ -108,8 +108,13 @@ def analyze_trend(
     if df.is_empty():
         raise ValueError("No data provided for analysis")
 
-    # Get latest row
-    latest = df.tail(1).to_dicts()[0]
+    # Filter out rows with NaN close price (e.g., today's incomplete data)
+    clean_df = df.filter(pl.col("close").is_not_nan())
+    if clean_df.is_empty():
+        raise ValueError("No valid price data available for analysis")
+
+    # Get latest row with valid close price
+    latest = clean_df.tail(1).to_dicts()[0]
     last_price = latest["close"]
     as_of_date = latest["date"]
 

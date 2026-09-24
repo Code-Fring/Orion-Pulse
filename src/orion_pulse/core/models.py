@@ -6,6 +6,15 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from orion_pulse.core.symbol_resolver import (
+    SymbolInfo,
+    SymbolResolver,
+    format_symbol_info,
+    get_resolver,
+    resolve_symbol,
+    search_symbols,
+)
+
 
 class Trend(str, Enum):
     """Market trend classification."""
@@ -133,3 +142,21 @@ class AnalysisReport(BaseModel):
     trend_analysis: TrendAnalysis
     lookback_days: int
     data_points: int
+
+
+__all__ = [
+    "Trend",
+    "OHLCV",
+    "DailyReturn",
+    "MovingAverage",
+    "Volatility",
+    "VolumeRatio",
+    "TrendAnalysis",
+    "AnalysisReport",
+    "SymbolInfo",
+    "SymbolResolver",
+    "format_symbol_info",
+    "get_resolver",
+    "resolve_symbol",
+    "search_symbols",
+]

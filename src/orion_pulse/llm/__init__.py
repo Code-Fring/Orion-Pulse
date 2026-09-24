@@ -12,7 +12,21 @@ class LLMProviderName(str, Enum):
     NVIDIA = "nvidia"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    MOCK = "mock"
+
+
+class NVIDIAModel(str, Enum):
+    """Available NVIDIA models."""
+
+    NEMOTRON_3_ULTRA = "nvidia/nemotron-3-ultra"
+    NEMOTRON_3_ULTRA_253B = "nvidia/nemotron-3-ultra-253b"
+    LLAMA_3_1_NEMOTRON_70B = "nvidia/llama-3.1-nemotron-70b-instruct"
+    LLAMA_3_1_405B = "meta/llama-3.1-405b-instruct"
+    LLAMA_3_1_70B = "meta/llama-3.1-70b-instruct"
+    LLAMA_3_1_8B = "meta/llama-3.1-8b-instruct"
+    MISTRAL_LARGE = "mistralai/mistral-large"
+    MIXTRAL_8X7B = "mistralai/mixtral-8x7b-instruct"
+    GEMMA_2_9B = "google/gemma-2-9b-it"
+    GEMMA_2_27B = "google/gemma-2-27b-it"
 
 
 @dataclass(frozen=True)
@@ -72,69 +86,26 @@ class LLMProvider(ABC):
         ...
 
 
-class MockLLMProvider(LLMProvider):
-    """Mock LLM provider for testing."""
-
-    def __init__(self, responses: dict[str, str] | None = None):
-        self._responses = responses or {}
-        self._enabled = True
-
-    def get_provider_name(self) -> str:
-        return LLMProviderName.MOCK.value
-
-    def is_available(self) -> bool:
-        return self._enabled
-
-    def get_default_model(self) -> str:
-        return "mock-model"
-
-    def complete(
-        self,
-        messages: list[LLMMessage],
-        temperature: float = 0.3,
-        max_tokens: int = 2000,
-        **kwargs: Any,
-    ) -> LLMResponse:
-        # Return a mock response based on the last user message
-        last_user_msg = next(
-            (m.content for m in reversed(messages) if m.role == "user"), ""
-        )
-
-        # Check for predefined responses
-        for key, response in self._responses.items():
-            if key.lower() in last_user_msg.lower():
-                return LLMResponse(
-                    content=response,
-                    model=self.get_default_model(),
-                    usage={
-                        "prompt_tokens": 100,
-                        "completion_tokens": 50,
-                        "total_tokens": 150,
-                    },
-                )
-
-        # Default mock response
-        return LLMResponse(
-            content=f"[MOCK] Analysis for: {last_user_msg[:100]}...",
-            model=self.get_default_model(),
-            usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
-        )
-
-
 class NVIDIAProvider(LLMProvider):
     """NVIDIA API provider (Nemotron, Llama, etc.)."""
 
     BASE_URL = "https://integrate.api.nvidia.com/v1"
 
+    _UNSET = object()
+
     def __init__(
         self,
-        api_key: str | None = None,
+        api_key: str | None = _UNSET,
         model: str = "nvidia/nemotron-3-ultra",
         timeout: int = 60,
     ):
         from orion_pulse.config.settings import settings
 
-        self.api_key = api_key or settings.nvidia_api_key
+        # Use provided api_key, or fall back to settings if not explicitly provided
+        if api_key is self._UNSET:
+            self.api_key = settings.nvidia_api_key
+        else:
+            self.api_key = api_key
         self.model = model
         self.timeout = timeout
         self._enabled = bool(self.api_key)
@@ -215,23 +186,73 @@ class NVIDIAProvider(LLMProvider):
             ) from e
 
 
+class MockLLMProvider(LLMProvider):
+    """Mock LLM provider for testing."""
+
+    def __init__(self, responses: dict[str, str] | None = None):
+        self.responses = responses or {}
+        self._enabled = True
+
+    def get_provider_name(self) -> str:
+        return "mock"
+
+    def is_available(self) -> bool:
+        return self._enabled
+
+    def get_default_model(self) -> str:
+        return "mock-model"
+
+    def complete(
+        self,
+        messages: list[LLMMessage],
+        temperature: float = 0.3,
+        max_tokens: int = 2000,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        # Check if any message content matches a predefined response
+        for msg in messages:
+            for key, response in self.responses.items():
+                if key.lower() in msg.content.lower():
+                    return LLMResponse(
+                        content=response,
+                        model=self.get_default_model(),
+                        usage={
+                            "prompt_tokens": 10,
+                            "completion_tokens": 20,
+                            "total_tokens": 30,
+                        },
+                    )
+
+        # Default mock response
+        return LLMResponse(
+            content="MOCK RESPONSE: Analysis complete",
+            model=self.get_default_model(),
+            usage={"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+        )
+
+
 class LLMProviderFactory:
     """Factory for creating LLM providers."""
 
     _providers: dict[str, LLMProvider] = {}
 
     @classmethod
-    def get_provider(cls, name: str = "nvidia") -> LLMProvider:
+    def get_provider(
+        cls, name: str = "nvidia", model: str | None = None
+    ) -> LLMProvider:
         """Get or create a provider instance."""
-        if name not in cls._providers:
+        cache_key = f"{name}:{model or 'default'}"
+        if cache_key not in cls._providers:
             if name == "nvidia":
-                cls._providers[name] = NVIDIAProvider()
+                cls._providers[cache_key] = (
+                    NVIDIAProvider(model=model) if model else NVIDIAProvider()
+                )
             elif name == "mock":
-                cls._providers[name] = MockLLMProvider()
+                cls._providers[cache_key] = MockLLMProvider()
             else:
                 raise ValueError(f"Unknown LLM provider: {name}")
 
-        return cls._providers[name]
+        return cls._providers[cache_key]
 
     @classmethod
     def get_available_providers(cls) -> list[str]:
